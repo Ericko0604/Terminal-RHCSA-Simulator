@@ -1,0 +1,1258 @@
+saya ingin membuat webiste simulasi terminal linux, teman saya menyarankan untuk terminalnya gunakan docker namun dia tidak memberitahu saya lebih lanjut bagaimana caranya. rencana web ini saya gunakan untuk pelatihan murid saya, dan biasanya saya menggunakan stack MERN
+
+Halo! Ini proyek yang sangat menarik, dan saya ingat Anda sebelumnya pernah berhasil membuat proyek simulator terminal Red Hat. Menggunakan MERN stack sebagai basis Anda sudah sangat tepat.
+
+Saran teman Anda untuk menggunakan Docker adalah ide yang sangat bagus, terutama untuk tujuan pelatihan.
+
+Begini cara kerjanya dan bagaimana ini semua terhubung:
+
+Mengapa Docker?
+Teman Anda menyarankannya karena Docker menyediakan isolasi. Daripada mensimulasikan perintah Linux (misalnya, membuat if (command === 'ls') { ... } di Node.js), Anda akan memberi setiap murid lingkungan Linux nyata mereka sendiri yang terisolasi di dalam sebuah container.
+
+Ini jauh lebih baik untuk pelatihan karena:
+
+Aman: Satu murid tidak dapat secara tidak sengaja (atau sengaja) menghapus file atau merusak lingkungan murid lain.
+
+Akurat: Mereka menjalankan perintah Linux yang sebenarnya, bukan simulasi. Mereka bisa cd, mkdir, nano, ps, dan lainnya.
+
+Bersih: Setelah sesi pelatihan selesai, Anda cukup menghapus container tersebut, dan sistem kembali bersih.
+
+Arsitektur: MERN + Docker
+Berikut adalah bagaimana tumpukan MERN Anda berinteraksi dengan Docker. Anggap saja MERN sebagai "dasbor" dan Docker sebagai "mesin" yang sebenarnya.
+
+1. M - MongoDB
+Anda tetap menggunakan MongoDB seperti biasa. Ini sempurna untuk menyimpan:
+
+Data murid (username, password).
+
+Materi pelatihan atau modul.
+
+Progres atau riwayat perintah setiap murid.
+
+2. R - React (Frontend)
+Ini adalah bagian yang dilihat murid. Di sinilah Anda akan menggunakan library JavaScript bernama xterm.js.
+
+xterm.js adalah library yang menciptakan tampilan dan nuansa terminal langsung di dalam browser.
+
+Terminal ini akan terhubung ke backend Node.js Anda menggunakan WebSockets (library populer untuk ini adalah socket.io-client).
+
+Setiap ketukan tombol yang diketik murid di xterm.js akan dikirim ke backend melalui WebSocket.
+
+3. E - Express & N - Node.js (Backend)
+Ini adalah "otak" dari operasi Anda. Server Express/Node.js Anda akan melakukan beberapa hal:
+
+Menangani otentikasi (login/logout) murid.
+
+Menyajikan API untuk materi pelatihan dari MongoDB.
+
+Mengelola koneksi WebSocket (socket.io server).
+
+Ini bagian kuncinya: Berbicara dengan Docker menggunakan library Node.js bernama dockerode.
+
+Alur Kerja (Bagaimana Semuanya Terhubung)
+Ini adalah alur langkah demi langkah dari saat murid Anda membuka website:
+
+Murid Login: Murid membuka web React Anda, login. React mengirim permintaan ke Express, Express memverifikasi ke MongoDB.
+
+Buka Terminal: Murid membuka halaman pelatihan. Komponen React yang berisi xterm.js dimuat.
+
+Koneksi: xterm.js (melalui socket.io-client) membuka koneksi WebSocket ke server Node.js Anda.
+
+Backend Bertindak: Server Node.js Anda menerima koneksi WebSocket baru.
+
+Menggunakan dockerode, server Anda memberi perintah ke Docker: "Hei Docker, tolong buatkan saya satu container baru dari image ubuntu:latest (atau alpine agar ringan)."
+
+Docker membuat container tersebut.
+
+Node.js kemudian "melekat" (attach) ke aliran input (stdin) dan output (stdout) dari container tersebut.
+
+Murid Mengetik: Murid mengetik ls -l di terminal xterm.js.
+
+xterm.js mengirim teks "ls -l\n" ke Node.js melalui WebSocket.
+
+Perintah Diteruskan: Node.js menerima teks itu dan meneruskannya langsung ke input (stdin) dari container Docker yang spesifik untuk murid tersebut.
+
+Docker Bekerja: Di dalam container, shell Linux menerima perintah ls -l, menjalankannya, dan menghasilkan output (misalnya, "total 0...").
+
+Output Kembali: Output ini keluar melalui output (stdout) container.
+
+dockerode (yang sedang "mendengarkan") menangkap output ini.
+
+Node.js mengambil output tersebut dan mengirimkannya kembali ke browser murid melalui WebSocket.
+
+Tampil di Layar: xterm.js di browser menerima teks output dan menampilkannya di layar.
+
+Bagi murid, rasanya mereka sedang mengetik di terminal sungguhan. Padahal, mereka sebenarnya mengendalikan sebuah container Docker di server Anda dari jarak jauh.
+
+Teknologi Kunci yang Perlu Anda Pelajari
+Berdasarkan stack MERN Anda, berikut adalah tiga bagian baru yang perlu Anda tambahkan:
+
+xterm.js: Untuk di sisi React Anda. Ini murni untuk tampilan UI terminal.
+
+socket.io (atau ws): Untuk koneksi React dan Node.js. Ini adalah pipa komunikasi real-time.
+
+dockerode: Untuk di sisi Node.js Anda. Ini adalah cara Node.js memberi perintah ke Docker (seperti membuat, memulai, dan menghentikan container).
+
+Ini adalah arsitektur yang sangat kuat dan modern untuk apa yang ingin Anda bangun. Semoga berhasil!
+
+saya ingin terminalnya dapat mencakup latihan dari yang mudah seperti file manajemen hingga yang sulit seperti ssh, networking, storage, dan container. saya ingin ketika menjalakan latihan dapat menggunakan command lab start <nama test> dan lab end <nama test>. apakah posible? dan bagaimana settingnya
+
+Ya, itu sangat mungkin (possible) dan ini adalah evolusi yang brilian dari ide awal Anda.
+
+Ini mengubah proyek Anda dari "simulator terminal" pasif menjadi platform lab interaktif yang terpandu.
+
+Perintah lab start dan lab end yang Anda bayangkan bukanlah perintah Linux standar. Itu akan menjadi skrip kustom yang Anda buat sendiri dan Anda masukkan ke dalam Docker image sebagai "instruktur" untuk murid Anda.
+
+Berikut adalah bagaimana Anda mengatur arsitektur dan konfigurasinya:
+
+Arsitektur Konsep: 3 Komponen Utama
+Anda masih menggunakan MERN + Docker, tetapi peran mereka menjadi lebih spesifik:
+
+MERN Stack (Dashboard & Kontrol):
+
+React: Menampilkan daftar lab (misalnya, "Lab 1: File Management", "Lab 2: SSH"). Murid memilih lab. React memberi tahu backend Node.js.
+
+Node.js/Express: Bertindak sebagai Orchestrator. Saat murid memilih "Lab 2: SSH", Node.js (menggunakan dockerode) tidak hanya menjalankan container ubuntu biasa. Ia akan menjalankan container dari image kustom yang sudah terinstal openssh-server.
+
+MongoDB: Menyimpan materi lab, instruksi, dan yang paling penting, progres murid (misalnya, user_id: 'murid_A', lab_ssh: 'completed').
+
+Dockerfile Kustom (Ruang Kelas):
+
+Ini adalah kuncinya. Anda tidak akan menggunakan image ubuntu:latest standar. Anda akan membuat Dockerfile Anda sendiri.
+
+Image ini akan berisi semua tools yang diperlukan untuk semua latihan Anda: openssh-server (untuk lab SSH), iproute2 (untuk lab networking), docker-cli (untuk lab container, lihat catatan keamanan di bawah), fdisk (untuk lab storage), dll.
+
+Yang terpentING, Dockerfile ini akan COPY skrip buatan Anda ke dalam container.
+
+Dockerfile
+# Contoh Dockerfile
+FROM ubuntu:22.04
+
+# Install semua tools yang diperlukan
+RUN apt-get update && apt-get install -y \
+    openssh-server \
+    iproute2 \
+    fdisk \
+    # ...dan tools lain
+
+# Salin skrip "lab" Anda ke dalam container
+COPY scripts/lab.sh /usr/local/bin/lab
+RUN chmod +x /usr/local/bin/lab
+
+# Salin semua file konfigurasi dan validasi lab
+COPY lab_configs/ /opt/lab_configs/
+Skrip lab (Sang Instruktur di Dalam):
+
+Ini adalah skrip shell (misalnya lab.sh) yang Anda letakkan di /usr/local/bin/lab. Ini yang akan dieksekusi ketika murid mengetik lab start.
+
+Skrip ini akan membaca argumen (start atau end) dan nama tes (misMa, file-mgmt).
+
+lab start: Akan menjalankan skrip setup lain (misalnya, membuat file, memulai service).
+
+lab end: Akan menjalankan skrip validasi (misalnya, mengecek apakah file sudah dipindah, service sudah berjalan).
+
+Contoh Implementasi: Skrip lab.sh
+Ini adalah contoh sederhana bagaimana skrip /usr/local/bin/lab Anda bisa terlihat:
+
+Bash
+#!/bin/bash
+
+# Path ke file konfigurasi lab
+CONFIG_DIR="/opt/lab_configs"
+
+# Argumen pertama adalah aksi (start/end)
+ACTION=$1
+# Argumen kedua adalah nama lab
+LAB_NAME=$2
+
+if [ -z "$ACTION" ] || [ -z "$LAB_NAME" ]; then
+    echo "Penggunaan: lab <start|end> <nama_lab>"
+    exit 1
+fi
+
+# Cek file setup dan validasi
+SETUP_SCRIPT="${CONFIG_DIR}/${LAB_NAME}.start.sh"
+VALIDATE_SCRIPT="${CONFIG_DIR}/${LAB_NAME}.validate.sh"
+
+case $ACTION in
+    start)
+        if [ -f "$SETUP_SCRIPT" ]; then
+            echo "--- Memulai Lab: $LAB_NAME ---"
+            # Menjalankan skrip setup untuk lab tersebut
+            /bin/bash "$SETUP_SCRIPT"
+            echo "-----------------------------------"
+            echo "Instruksi lab ditampilkan di browser Anda."
+            echo "Silakan kerjakan tugasnya."
+        else
+            echo "Error: Lab '$LAB_NAME' tidak ditemukan."
+        fi
+        ;;
+
+    end)
+        if [ -f "$VALIDATE_SCRIPT" ]; then
+            echo "--- Mengakhiri & Memvalidasi Lab: $LAB_NAME ---"
+            # Menjalankan skrip validasi
+            if /bin/bash "$VALIDATE_SCRIPT"; then
+                echo "-----------------------------------"
+                echo "✅ SELAMAT! Lab Selesai."
+                echo "-----------------------------------"
+                # (Opsional) Kirim hasil ke MERN backend
+                # curl -X POST http://backend-host/api/lab/complete -d "lab=$LAB_NAME"
+            else
+                echo "-----------------------------------"
+                echo "❌ GAGAL. Coba periksa kembali pekerjaan Anda."
+                echo "-----------------------------------"
+            fi
+        else
+            echo "Error: Skrip validasi '$LAB_NAME' tidak ditemukan."
+        fi
+        ;;
+    *)
+        echo "Aksi tidak dikenal: $ACTION. Gunakan 'start' atau 'end'."
+        ;;
+esac
+Contoh skrip setup (/opt/lab_configs/file-mgmt.start.sh):
+
+Bash
+#!/bin/bash
+# Skrip ini mengatur lingkungan untuk lab file-mgmt
+rm -rf /home/murid/latihan
+mkdir -p /home/murid/latihan/dokumen
+mkdir -p /home/murid/latihan/backup
+touch /home/murid/latihan/dokumen/laporan.txt
+touch /home/murid/latihan/dokumen/catatan.md
+echo "TUGAS: Pindahkan semua file .txt dari 'dokumen' ke 'backup'."
+Contoh skrip validasi (/opt/lab_configs/file-mgmt.validate.sh):
+
+Bash
+#!/bin/bash
+# Skrip ini memvalidasi apakah tugas sudah selesai
+if [ -f "/home/murid/latihan/backup/laporan.txt" ] && [ ! -f "/home/murid/latihan/dokumen/laporan.txt" ]; then
+    # Jika file ada di tujuan dan tidak ada di sumber, berhasil
+    exit 0
+else
+    # Gagal
+    exit 1
+fi
+Menangani Latihan Sulit (SSH, Networking, Container)
+Di sinilah peran Node.js/dockerode menjadi sangat penting. Anda tidak bisa melakukan semua ini hanya dari dalam satu container. Backend Anda harus menyiapkan "panggung" yang tepat.
+
+Untuk Lab SSH:
+
+Node.js: Menjalankan container dari image kustom Anda.
+
+Skrip lab start ssh-lab: Menjalankan service ssh start di dalam container. Skrip akan memberi tahu murid, "Tugas: SSH ke localhost menggunakan user murid."
+
+Untuk Lab Networking:
+
+Ini lebih rumit. Katakanlah Anda ingin murid mengatur rute antar dua jaringan.
+
+Node.js: Harus membuat dua container (murid-terminal dan target-server) dan menghubungkan keduanya ke docker network kustom yang Anda buat saat itu juga.
+
+Skrip lab start net-lab: Memberi tahu murid, "Ada server lain di 172.18.0.5. Tugas Anda adalah memblokir trafik ping ke server tersebut menggunakan iptables."
+
+Untuk Lab Storage:
+
+Node.js: Menjalankan container dalam mode --privileged. Ini berbahaya tetapi diperlukan agar murid bisa menggunakan mount atau fdisk.
+
+Skrip lab start storage-lab: Menggunakan losetup untuk membuat "disk virtual" dari sebuah file, dan murid bertugas memformat (mkfs) dan me-mount-nya.
+
+Untuk Lab Container (Sangat Penting: Keamanan):
+
+Anda ingin murid menjalankan docker ps, docker run, dll.
+
+Cara Berbahaya (Jangan Dilakukan): Me-mount Docker socket host (-v /var/run/docker.sock:/var/run/docker.sock). Ini disebut Docker-out-of-Docker (DooD). Jika Anda melakukan ini, seorang murid di dalam container bisa menjalankan docker rm -f $(docker ps -aq) dan menghapus container semua murid lain (termasuk server Anda!).
+
+Cara Aman (Disarankan): Backend Node.js Anda yang mengatur panggungnya.
+
+Node.js: Membuat dua container: murid-terminal (yang mereka gunakan) dan murid-target-nginx (sebuah container nginx biasa).
+
+Skrip lab start container-intro: Memberi tahu murid, "Kami sudah menjalankan container nginx untuk Anda. IP-nya 172.19.0.10. Tugas Anda adalah SSH ke container tersebut (Anda perlu apt install openssh-client dulu) dan edit file index.html-nya."
+
+Dengan cara ini, murid belajar berinteraksi antar container tanpa perlu hak akses docker yang berbahaya.
+
+okey saya mulai paham, berarti saya cukup membuat custom script untuk testnya, tidak perlu merancang terminal dari awal. kemudian bagaimana cara menghubungkan docker dengan web yang saya buat
+
+Tepat sekali. Pemahaman Anda sudah 100% benar. Anda tidak perlu "membuat" terminal; Anda hanya menggunakan xterm.js sebagai tampilan, dan fokus Anda adalah membuat skrip latihan (lab.sh) di dalam Docker.
+
+Untuk pertanyaan Anda: "Bagaimana cara menghubungkan Docker dengan web yang saya buat?"
+
+Jawabannya adalah: Backend Node.js/Express Anda yang menjadi jembatannya.
+
+Frontend (React) Anda tidak pernah berbicara langsung dengan Docker. Itu sangat tidak aman. Alurnya selalu melalui backend Anda.
+
+Begini alur koneksi lengkapnya, dibagi menjadi dua bagian:
+
+Bagian 1: Frontend (Browser) ke Backend (Node.js)
+Ini adalah "pipa" komunikasi Anda. Karena terminal bersifat interaktif (mengetik real-time), Anda tidak bisa menggunakan API request biasa (HTTP). Anda harus menggunakan WebSockets.
+
+Library paling populer untuk ini adalah socket.io.
+
+Di Frontend (React): Anda menggunakan xterm.js dan socket.io-client.
+
+xterm.js menangkap ketukan tombol (misal, user mengetik l).
+
+socket.io-client mengirimkan data ("l") ke backend Anda.
+
+socket.io-client mendengarkan balasan dari backend (misal, output dari perintah ls) dan memberikannya ke xterm.js untuk ditampilkan.
+
+JavaScript
+// Contoh di komponen React Anda
+import { Terminal } from 'xterm';
+import { io } from 'socket.io-client';
+
+const socket = io("http://localhost:3001"); // Alamat backend Anda
+const term = new Terminal();
+term.open(document.getElementById('terminal')); // 'terminal' adalah div
+
+// Kirim ketukan tombol ke backend
+term.onData(data => {
+  socket.emit('terminal-input', data);
+});
+
+// Terima output dari backend dan tampilkan
+socket.on('terminal-output', data => {
+  term.write(data);
+});
+Bagian 2: Backend (Node.js) ke Docker
+Ini adalah "mesin" Anda. Saat backend Node.js Anda menerima koneksi WebSocket baru dari murid, ia harus:
+
+Membuatkan satu container Docker khusus untuk murid itu.
+
+Menyambungkan input/output container itu ke WebSocket murid tersebut.
+
+Library standar untuk melakukan ini di Node.js adalah dockerode.
+
+Di Backend (Node.js): Anda menggunakan express, socket.io, dan dockerode.
+
+dockerode adalah library Node.js yang berfungsi sebagai "remote control" untuk Docker. Ia berbicara ke Docker melalui file socket (/var/run/docker.sock).
+
+JavaScript
+// Contoh di server.js (Express) Anda
+const express = require('express');
+const http = require('http');
+const { Server } = require("socket.io");
+const Docker = require('dockerode');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+
+io.on('connection', (socket) => {
+  console.log('Murid terhubung...');
+
+  // 1. Buat container untuk murid ini
+  docker.createContainer({
+    Image: 'image-latihan-custom-anda', // Image yg Anda buat dgn skrip lab
+    Tty: true, // Perlu untuk terminal interaktif
+    Cmd: ['/bin/bash'] // Perintah awal saat container nyala
+  }, (err, container) => {
+
+    // 2. Start container & "lekatkan" (attach) ke stream
+    container.attach({ stream: true, stdin: true, stdout: true, stderr: true }, (err, stream) => {
+
+      // --- INI BAGIAN PENTINGNYA ---
+
+      // (A) Terima input dari murid (dari WebSocket) dan teruskan ke container
+      socket.on('terminal-input', (data) => {
+        stream.write(data); // Menulis ke STDIN container
+      });
+
+      // (B) Terima output dari container dan teruskan ke murid (ke WebSocket)
+      stream.on('data', (data) => {
+        socket.emit('terminal-output', data.toString('utf8')); // Mengirim ke STDOUT browser
+      });
+
+      container.start();
+    });
+
+    // Jika murid disconnect, hapus containernya
+    socket.on('disconnect', () => {
+      container.stop(() => container.remove());
+      console.log('Murid disconnect, container dihapus.');
+    });
+  });
+});
+
+server.listen(3001, () => {
+  console.log('Server backend berjalan di port 3001');
+});
+Ringkasan
+Jadi, alurnya adalah:
+
+Murid (React): Mengetik ls di xterm.js.
+
+Pipa (Socket.io): socket.io-client mengirim string "ls" ke server Node.js Anda.
+
+Jembatan (Node.js): Server socket.io Anda menerima "ls".
+
+Remote (Dockerode): dockerode mengambil string "ls" itu dan memberikannya ke stdin dari container Docker yang sesuai.
+
+Mesin (Docker): Container menjalankan ls, menghasilkan output "README.md".
+
+Remote (Dockerode): dockerode menangkap output "README.md" dari stdout container.
+
+Jembatan (Node.js): Meneruskan "README.md" ke socket.io.
+
+Pipa (Socket.io): socket.io mengirim "README.md" kembali ke browser.
+
+Murid (React): xterm.js menerima data dan menampilkannya di layar.
+
+Bagi murid, ini terasa instan dan ajaib. Bagi Anda, ini adalah arsitektur yang jelas: React (UI) -> Node (Logika) -> Docker (Eksekusi).
+
+hmmm saya masih kurang paham coba buatkan gambaran alur kerja sistemnya
+
+Tentu, mari kita gunakan analogi sederhana untuk menggambarkan alur kerjanya.
+
+Bayangkan Anda membangun sebuah "Restoran Pelatihan Linux".
+
+Para Aktor (Teknologi Anda)
+Murid Anda = Pelanggan 🧑‍💻
+
+Browser (React + xterm.js) = Pelayan & Meja Makan 🖥️
+
+Backend Anda (Node.js + Express) = Manajer Dapur 📋
+
+Socket.io = Sistem Komunikasi Walkie-Talkie ⚡
+
+Docker = Area Dapur Utama 🏭
+
+Container (milik murid) = Meja Dapur Pribadi yang terisolasi 📦
+
+Alur Kerja: Saat Murid Mulai Latihan
+Berikut adalah apa yang terjadi langkah demi langkah saat seorang murid mengetik ls dan menekan Enter.
+
+Langkah 1: Pelanggan Datang & Dipesankan Meja
+Pelanggan (Murid) login ke website Anda.
+
+Dia membuka halaman latihan. Pelayan (React) langsung memberi tahu Manajer Dapur (Node.js) melalui walkie-talkie (Socket.io), "Ada pelanggan baru di Meja 5!"
+
+Manajer Dapur (Node.js) berteriak ke Area Dapur Utama (Docker): "Siapkan satu Meja Dapur Pribadi (Container) lengkap dengan semua bahan (image-latihan-custom-anda)!"
+
+Docker menyiapkan meja itu, dan Manajer Dapur menyambungkan walkie-talkie Pelanggan (koneksi socket.io) langsung ke Meja Dapur Pribadi itu.
+
+Langkah 2: Pelanggan Memesan (Mengetik ls)
+Di meja makannya, Pelanggan (Murid) mengetik l di Meja Makan (xterm.js).
+
+Pelayan (React) melihat ini dan langsung mengirim ketukan l itu lewat walkie-talkie (Socket.io) ke belakang.
+
+Manajer Dapur (Node.js) menerimanya dan meneruskannya ke Meja Dapur Pribadi (Container).
+
+Proses ini berulang untuk s.
+
+Pelanggan menekan Enter. Pelayan mengirim sinyal "PESANAN DIKIRIM!" ke Manajer Dapur, yang meneruskannya ke Meja Dapur Pribadi.
+
+Langkah 3: Pesanan Dimasak (Perintah Dieksekusi)
+Di dalam Meja Dapur Pribadi (Container), seorang Koki (Linux Shell) 🧑‍🍳 menerima pesanan lengkap: ls + Enter.
+
+Koki itu langsung "memasak" pesanan tersebut (menjalankan perintah ls).
+
+Hasil masakannya adalah: folder_latihan, file_penting.txt.
+
+Langkah 4: Makanan Diantar (Output Ditampilkan)
+Output (folder_latihan, file_penting.txt) otomatis diletakkan oleh Koki di "jendela antar" (disebut stdout).
+
+Manajer Dapur (Node.js), yang terus memantau jendela itu (via dockerode), melihat ada output baru.
+
+Dia mengambil output itu dan langsung mengirimkannya kembali ke depan menggunakan walkie-talkie (Socket.io).
+
+Pelayan (React) menerima output itu dan menampilkannya di Meja Makan (xterm.js) milik Pelanggan.
+
+Ringkasan Alur
+Jadi, alurnya adalah aliran data dua arah yang konstan:
+
+Input Murid: Murid ➔ xterm.js ➔ Socket.io (Client) ➔ Node.js (Server) ➔ Docker Container
+
+Output Perintah: Docker Container ➔ Node.js (Server) ➔ Socket.io (Client) ➔ xterm.js ➔ Murid
+
+Backend (Node.js) Anda adalah pusatnya. Ia tidak menjalankan perintah Linux, tetapi ia bertugas menyambungkan pipa antara terminal di browser (xterm.js) dan terminal sungguhan di dalam Docker (container).
+
+okey sekarang saya paham. dari info yang anda berikan sepertinya akan menggunakan sumber daya yang cukup besar dan sepertinya saya akan membatasi jumlah simulasi terminal sebanyak 0-3, saya memiliki ide untuk memberikan fitur token untuk mengakses simulasi terminal sehingga murid yang ingin mengakses harus mendapatkan token yang saya generate sebagai admin dan 1 token dapat aktif selama 1jam, dan juga karena perangkat saya tidak dapat menjalankan docker 24jam maka akan terdapat fitur yang memberikan informasi apakah docker sedang aktif atau tidak
+
+Ide Anda sangat bagus dan tepat sasaran. Ini adalah cara profesional untuk mengelola sumber daya yang terbatas. 💡
+
+Ya, semua ide Anda sangat mungkin diimplementasikan menggunakan MERN stack yang sudah Anda rencanakan. Backend Node.js/Express Anda akan menjadi pusat kendali untuk semua logika bisnis ini.
+
+Mari kita pecah cara kerjanya:
+
+1. Kontrol Sesi (0-3 Terminal) & Sistem Token
+Ini adalah dua ide yang bekerja bersamaan. Token adalah "kunci" untuk masuk, dan batas sesi adalah jumlah "kursi" yang tersedia.
+
+Analogi Restoran:
+
+Restoran Anda (Server) hanya punya 3 kursi.
+
+Anda (Admin) membagikan "Voucher Sekali Pakai" (Token) kepada murid.
+
+Backend Node.js Anda adalah Manajer Restoran.
+
+Bagaimana Cara Kerjanya:
+
+Admin (Anda): Membuat Token
+
+Anda perlu membuat satu halaman admin khusus di web React Anda (misalnya, dilindungi password).
+
+Di halaman itu, ada tombol "Generate Token".
+
+Tombol ini memanggil API di Node.js (misalnya, POST /api/admin/generate-token).
+
+Node.js membuat sebuah string acak unik (misalnya, TRM-aXbY-72Zc) dan menyimpannya di MongoDB dalam koleksi baru bernama tokens.
+
+Struktur Dokumen Token di MongoDB:
+
+JSON
+{
+  "token_string": "TRM-aXbY-72Zc",
+  "is_used": false,
+  "created_at": "2025-10-19T..."
+}
+Murid: Menggunakan Token
+
+Saat murid membuka halaman terminal, React tidak langsung membuka koneksi. React menampilkan kotak input "Masukkan Token Akses Anda".
+
+Murid memasukkan TRM-aXbY-72Zc.
+
+React mengirimkan token ini ke Node.js saat mencoba memulai koneksi WebSocket (socket.io).
+
+Backend (Node.js): Memvalidasi Token & Sesi
+
+Di server Node.js, Anda perlu variabel global sederhana untuk menghitung sesi aktif: let activeSessions = 0;
+
+Saat koneksi WebSocket baru masuk (io.on('connection', ...)) membawa token: a. Cek Batas Sesi: if (activeSessions >= 3)? Jika ya, tolak koneksi dengan pesan "Server penuh, silakan coba lagi nanti." b. Cek Token di MongoDB: Cari token TRM-aXbY-72Zc di koleksi tokens. c. Cek Validitas: * Jika token tidak ada? Tolak. * Jika is_used adalah true? Tolak (token sudah dipakai). d. Jika Sukses: 1. activeSessions++; (Tambahkan hitungan sesi). 2. Update token di MongoDB: db.tokens.updateOne(..., { $set: { is_used: true } }). 3. Lanjutkan ke logika docker.createContainer(...) seperti yang kita bahas sebelumnya.
+
+2. Batas Waktu 1 Jam per Token (Sesi)
+Ini diatur oleh Node.js.
+
+Setelah token berhasil divalidasi dan container dibuat (Langkah 3d di atas), Anda segera memulai timer di sisi server.
+
+Ini sangat mudah dilakukan di dalam io.on('connection', ...):
+
+JavaScript
+// Di dalam io.on('connection', ...) setelah murid tervalidasi
+const container = ... // Container yang baru Anda buat
+
+// 1. Mulai timer 1 jam
+const sessionTimer = setTimeout(() => {
+    // Setelah 1 jam...
+    // Kirim pesan terakhir ke murid
+    socket.emit('terminal-output', '\r\n\r\n[SESI BERAKHIR] Waktu Anda habis (1 jam).\r\n');
+
+    // Putuskan koneksi mereka
+    socket.disconnect(true);
+
+    // Hentikan dan hapus container mereka (ini akan ditangkap oleh listener 'disconnect')
+    container.stop().then(() => container.remove());
+
+}, 3600 * 1000); // 3600 detik * 1000ms = 1 jam
+
+// 2. Listener jika murid keluar lebih dulu
+socket.on('disconnect', () => {
+    clearTimeout(sessionTimer); // Batalkan timer jika mereka logout
+    activeSessions--; // Kurangi hitungan sesi
+    container.stop().then(() => container.remove()); // Selalu bersihkan container
+    console.log(`Sesi berakhir, sisa sesi: ${activeSessions}`);
+});
+3. Fitur Status Docker (Aktif/Tidak Aktif)
+Ide ini juga sangat bagus. Ini memberi feedback instan ke murid jika server Anda (Docker) sedang offline.
+
+Ini adalah sebuah API endpoint sederhana di Node.js/Express.
+
+Backend (Node.js): Buat satu rute API baru:
+
+JavaScript
+// Di file server.js Express Anda
+const docker = new Docker(...);
+
+app.get('/api/docker-status', (req, res) => {
+  // dockerode punya fungsi ping bawaan
+  docker.ping((err, data) => {
+    if (err) {
+      // Gagal ping = Docker tidak berjalan atau socket tidak ditemukan
+      return res.json({ status: 'TIDAK AKTIF', message: 'Server simulasi sedang offline.' });
+    }
+    // Sukses ping = Docker berjalan
+    return res.json({ status: 'AKTIF', message: 'Server simulasi online.' });
+  });
+});
+Frontend (React):
+
+Di halaman login token Anda, buat sebuah komponen kecil.
+
+Gunakan useEffect untuk memanggil API /api/docker-status setiap 5 detik.
+
+Tampilkan statusnya ke murid:
+
+Jika status: 'AKTIF', tampilkan lencana hijau 🟢 dan izinkan mereka memasukkan token.
+
+Jika status: 'TIDAK AKTIF', tampilkan lencana merah 🔴 dan nonaktifkan (disable) kotak input token.
+
+Dengan tiga fitur ini, platform Anda akan menjadi jauh lebih matang, aman, dan efisien dalam penggunaan sumber daya.
+
+okey sekarang buatkan dokumentasinya supaya saya dan tim dapat mengembangkan web ini, dan anda dapat berperan sebagai rekan tim web dev saya sehingga anda dapat menanyakan jika ada yang diperlukan
+
+Siap! Ini langkah yang sangat tepat. Membangun di atas fondasi yang jelas akan membuat kerja tim kita jauh lebih cepat.
+
+Oke, saya akan siapkan draf Dokumentasi Desain Teknis (Technical Design Doc) awal untuk proyek ini. Anggap ini sebagai "peta" kita. Saya akan mengisi bagian yang kita ketahui dan memberi placeholder untuk hal yang perlu kita putuskan bersama.
+
+📋 Draf Dokumentasi Proyek: Linux Lab Interaktif
+Versi: 0.1 Tanggal: 19 Oktober 2025 Tim: [Nama Anda] (Project Lead/Dev), Gemini (Dev/Support)
+
+1. Ringkasan Proyek
+Proyek: Linux Lab Interaktif adalah platform pelatihan berbasis web yang menyediakan lingkungan terminal Linux interaktif dan terisolasi bagi para murid. Platform ini menggunakan MERN stack sebagai basis, dengan Docker di backend untuk menyediakan lingkungan yang aman per-sesi. Akses ke terminal dikontrol oleh sistem token yang dibatasi waktu dan jumlahnya untuk mengelola sumber daya server secara efisien.
+
+2. Tumpukan Teknologi (Tech Stack)
+Frontend: React.js
+
+xterm.js: Untuk rendering UI terminal di browser.
+
+socket.io-client: Untuk komunikasi real-time dengan backend.
+
+Backend: Node.js + Express.js
+
+socket.io: Untuk menangani koneksi WebSocket.
+
+dockerode: Untuk berinteraksi dengan Docker Engine (membuat, mengelola, menghapus container).
+
+mongoose: Untuk koneksi ke MongoDB.
+
+jsonwebtoken (Opsional): Jika kita butuh login admin yang lebih aman.
+
+Database: MongoDB
+
+Infrastruktur: Docker Engine (di server yang sama dengan Node.js)
+
+3. Arsitektur & Alur Data Utama
+Ini adalah alur kerja utama yang kita diskusikan:
+
+Murid (React): Membuka web, memasukkan token.
+
+Validasi (Node.js): socket.io menerima token. Node.js mengecek ke MongoDB (Apakah token valid? Apakah is_used == false?) dan mengecek variabel activeSessions.
+
+Cek Server (Node.js): Jika server penuh (activeSessions >= 3) atau token tidak valid, kirim pesan error.
+
+Pembuatan Sesi (Node.js -> Docker): Jika valid, activeSessions++. Node.js (via dockerode) memberi perintah ke Docker untuk create dan start satu container baru dari image kustom kita.
+
+Penyambungan (Node.js): Node.js "melekatkan" (attach) stream input/output container ke koneksi socket.io murid tersebut.
+
+Interaksi (Real-time):
+
+React (xterm.js) -> socket.io -> Node.js -> Container (stdin)
+
+Container (stdout) -> Node.js -> socket.io -> React (xterm.js)
+
+Akhir Sesi (Node.js): Setelah 1 jam (via setTimeout) atau saat murid disconnect:
+
+activeSessions--.
+
+Node.js (via dockerode) mengirim perintah stop dan remove ke container terkait.
+
+4. Struktur Database (MongoDB)
+Kita perlu 2 (mungkin 3) koleksi utama:
+
+1. tokens
+
+token_string: (String, Unik) Teks token, misal: "LAB-A1B2-C3D4".
+
+is_used: (Boolean) Default: false.
+
+created_at: (Date) Waktu admin membuat token.
+
+session_start_time: (Date) Waktu token pertama kali digunakan (di-set saat validasi).
+
+session_user_id: (String, Opsional) Jika kita ingin melacak murid mana yang pakai.
+
+2. admins
+
+username: (String)
+
+passwordHash: (String) Hash dari password admin.
+
+3. lab_progress (Opsional - Perlu Diskusi)
+
+token_string: (String) Token yang digunakan.
+
+lab_name: (String) Nama lab, misal "file-mgmt".
+
+status: (String) "started" atau "completed".
+
+5. Lingkungan Latihan (Docker)
+Kita akan membuat Dockerfile kustom (misal, Dockerfile.lab).
+
+Base Image: ubuntu:22.04 atau alpine:latest (untuk menghemat resource).
+
+Tools Terinstal: openssh-server, iproute2, net-tools, fdisk, dll.
+
+Skrip Kustom:
+
+COPY scripts/lab.sh /usr/local/bin/lab
+
+RUN chmod +x /usr/local/bin/lab
+
+COPY lab_configs/ /opt/lab_configs/ (berisi semua file .start.sh dan .validate.sh)
+
+6. Draf API & Event WebSocket
+API (REST - Express)
+POST /api/admin/login
+
+Body: { username, password }
+
+Respon: { token } (JWT Token untuk sesi admin)
+
+POST /api/admin/generate-token (Dilindungi JWT)
+
+Body: (kosong)
+
+Respon: { token_string } (Token baru yang disimpan ke DB)
+
+GET /api/status (Publik)
+
+Respon: { status: 'AKTIF' | 'TIDAK AKTIF', active_sessions: N }
+
+Catatan: active_sessions diambil dari variabel global di Node.js.
+
+Event (Real-time - Socket.io)
+Client -> Server
+
+auth(token): Murid mengirim token untuk memulai sesi.
+
+terminal-input(data): Murid mengirim ketikan dari xterm.js.
+
+Server -> Client
+
+auth-success: Sesi disetujui, terminal bisa dimulai.
+
+auth-fail(message): Token ditolak (misal: "Token tidak valid", "Server penuh").
+
+terminal-output(data): Mengirim output dari container untuk ditampilkan.
+
+session-end(message): Sesi diakhiri (misal: "Waktu habis (1 jam)").
+
+🚀 Pertanyaan dari Saya (Sebagai Rekan Tim)
+Ini adalah draf awal yang bagus, tapi saya perlu beberapa masukan dari Anda untuk melangkah lebih jauh:
+
+Nama Proyek & Repo: Apa nama final proyek ini? Dan di mana kita akan hosting kodenya (GitHub, GitLab)?
+
+Akun Murid vs Token: Apakah kita hanya pakai token? Atau apakah murid juga harus punya akun (username/password) sendiri? Menggunakan akun murid akan lebih rumit, tapi kita bisa melacak progres mereka secara permanen. Model "hanya token" jauh lebih sederhana (seperti yang kita bahas). Kita tetap dengan model "hanya token" dulu?
+
+Pelacakan Lab: Saat murid mengetik lab end <nama_test>, apakah skrip validasi di dalam container perlu memberi tahu Node.js bahwa lab tersebut "SELESAI"? Ini akan berguna untuk dashboard progres, tapi butuh komunikasi ekstra (mungkin skripnya curl ke sebuah endpoint internal?).
+
+Base Image Docker: Untuk menghemat sumber daya, apakah kita mau pakai alpine (sangat ringan) atau ubuntu (lebih familiar untuk murid)?
+
+Mari kita putuskan poin-poin ini, lalu kita bisa mulai membagi tugas! Saya bisa bantu siapkan struktur awal server Express + Socket.io jika Anda mau.
+
+1. simulasi terminal linux, github
+
+2. saat ini cukup token, tidak perlu akun murid
+
+3. tidak perlu pelacakan progres lab, karena tidak ada akun murid
+
+4. gunakan ubuntu
+
+Oke, keputusan bagus. Itu sangat menyederhanakan scope kita untuk versi pertama ini. Fokus, cepat, dan fungsional. Saya suka!
+
+Saya akan perbarui dokumentasinya berdasarkan masukan Anda.
+
+📋 Dokumentasi Proyek: Simulasi Terminal Linux
+Versi: 0.2 Tanggal: 19 Oktober 2025 Repo: GitHub (TBD)
+
+(Hanya bagian yang diperbarui)
+
+2. Tumpukan Teknologi (Tech Stack)
+... (Tidak ada perubahan) ...
+
+4. Struktur Database (MongoDB)
+Arus ini menjadi jauh lebih sederhana. Kita hanya butuh 2 koleksi.
+
+1. tokens
+
+token_string: (String, Unik) Teks token, misal: "LAB-A1B2-C3D4".
+
+is_used: (Boolean) Default: false.
+
+created_at: (Date) Waktu admin membuat token.
+
+session_start_time: (Date, Opsional) Di-set saat token digunakan. Berguna untuk logging.
+
+2. admins
+
+username: (String)
+
+passwordHash: (String) Hash dari password admin.
+
+Catatan: Koleksi users dan lab_progress dihapus dari scope v0.2.
+
+5. Lingkungan Latihan (Docker)
+Base Image: ubuntu:22.04 (Sesuai keputusan).
+
+Tools Terinstal: openssh-server, iproute2, net-tools, fdisk, dll.
+
+Skrip Kustom:
+
+COPY scripts/lab.sh /usr/local/bin/lab
+
+RUN chmod +x /usr/local/bin/lab
+
+COPY lab_configs/ /opt/lab_configs/
+
+Catatan: Pelaporan progres dari lab.sh ke backend dihapus dari scope v0.2.
+
+🚀 Langkah Selanjutnya (Pembagian Tugas)
+Baik, draf kita sudah solid. Bagaimana kalau kita bagi tugas seperti ini?
+
+Tugas Saya (Gemini):
+
+Saya akan siapkan boilerplate Backend (Node.js/Express).
+
+Ini akan mencakup:
+
+Server Express dasar.
+
+Pengaturan socket.io (logika koneksi).
+
+Draf logika dockerode (fungsi createContainer, attach, remove).
+
+API GET /api/status untuk mengecek ping Docker.
+
+Tugas Anda (Tim):
+
+Fokus pada Frontend (React).
+
+Membuat UI halaman "Masukkan Token".
+
+Mengintegrasikan xterm.js ke dalam komponen React.
+
+Menghubungkan socket.io-client ke xterm.js (logika term.onData dan socket.on('terminal-output')).
+
+Membuat komponen "Status Server" 🟢/🔴 yang memanggil API GET /api/status saya.
+
+Bagaimana menurut Anda? Jika setuju, saya akan mulai siapkan struktur dasar servernya.
+
+tuliskan ulang full dokumentasinya
+
+Tentu, ini adalah dokumentasi teknis lengkap versi 0.2, yang menggabungkan semua keputusan kita.
+
+📋 Dokumentasi Proyek: Simulasi Terminal Linux
+Versi: 0.2 Tanggal: 19 Oktober 2025 Repo: GitHub (TBD)
+
+1. Ringkasan Proyek
+Proyek: Simulasi Terminal Linux adalah platform pelatihan berbasis web yang menyediakan lingkungan terminal Linux interaktif dan terisolasi bagi para murid. Platform ini menggunakan MERN stack sebagai basis, dengan Docker di backend untuk menyediakan lingkungan yang aman per-sesi.
+
+Akses ke terminal dikontrol oleh sistem token yang hanya bisa di-generate oleh admin. Platform ini membatasi jumlah sesi bersamaan (saat ini direncanakan 0-3 sesi) dan setiap sesi dibatasi waktu (saat ini 1 jam) untuk mengelola sumber daya server secara efisien. Proyek ini tidak memerlukan akun murid dan tidak melacak progres lab.
+
+2. Tumpukan Teknologi (Tech Stack)
+Frontend: React.js
+
+xterm.js: Untuk rendering UI terminal di browser.
+
+socket.io-client: Untuk komunikasi real-time dengan backend.
+
+Backend: Node.js + Express.js
+
+socket.io: Untuk menangani koneksi WebSocket.
+
+dockerode: Untuk berinteraksi dengan Docker Engine (membuat, mengelola, menghapus container).
+
+mongoose: Untuk koneksi ke MongoDB.
+
+Database: MongoDB
+
+Infrastruktur: Docker Engine (diasumsikan berjalan di server yang sama dengan Node.js)
+
+3. Arsitektur & Alur Data Utama
+Alur kerja utama platform adalah sebagai berikut:
+
+Status & Token (React): Murid membuka web. React memanggil API GET /api/status untuk mengecek apakah server Docker aktif dan ada sesi yang tersedia. Jika ya, murid memasukkan token.
+
+Validasi (Node.js): socket.io menerima event auth yang membawa token. Node.js melakukan dua pengecekan:
+
+Kapasitas Server: Apakah activeSessions >= 3? Jika ya, tolak.
+
+Validitas Token: Cek ke MongoDB di koleksi tokens. Apakah token ada? Apakah is_used == false? Jika tidak valid, tolak.
+
+Pembuatan Sesi (Node.js -> Docker): Jika valid, server segera:
+
+Menandai token di MongoDB: is_used = true.
+
+Menambah hitungan sesi: activeSessions++.
+
+Menggunakan dockerode untuk memberi perintah ke Docker agar create dan start satu container baru dari image simulasi-linux:latest.
+
+Memulai timer 1 jam untuk sesi tersebut.
+
+Penyambungan (Node.js): Node.js "melekatkan" (attach) stream input (stdin) dan output (stdout/stderr) dari container ke koneksi socket.io murid tersebut. Server mengirim event auth-success ke client.
+
+Interaksi (Real-time):
+
+Input: React (xterm.js) -> socket.io ('terminal-input') -> Node.js -> Container (stdin)
+
+Output: Container (stdout) -> Node.js -> socket.io ('terminal-output') -> React (xterm.js)
+
+Akhir Sesi (Node.js): Sesi berakhir jika salah satu terjadi:
+
+Murid menutup tab (event disconnect socket.io).
+
+Timer 1 jam di server selesai.
+
+Pembersihan (Node.js -> Docker): Saat sesi berakhir, server akan:
+
+Mengurangi hitungan sesi: activeSessions--.
+
+Menggunakan dockerode untuk mengirim perintah stop dan remove ke container terkait untuk membersihkan sumber daya.
+
+4. Struktur Database (MongoDB)
+Struktur database dijaga minimal sesuai scope (tanpa akun murid/progres).
+
+1. Koleksi tokens Menyimpan semua token yang bisa digunakan untuk mengakses terminal.
+
+JSON
+{
+  "_id": "6724e0f4...",
+  "token_string": "LAB-A1B2-C3D4",
+  "is_used": false,
+  "created_at": "2025-10-19T10:00:00Z",
+  "session_start_time": "2025-10-19T10:30:00Z" // Diisi saat token digunakan
+}
+2. Koleksi admins Menyimpan data login untuk admin yang dapat men-generate token.
+
+JSON
+{
+  "_id": "6724e0f9...",
+  "username": "admin_utama",
+  "passwordHash": "$2b$10$K...hash...password...Q"
+}
+5. Lingkungan Latihan (Docker)
+Kita akan membangun satu Dockerfile kustom untuk menciptakan image lingkungan lab kita.
+
+Base Image: ubuntu:22.04 (untuk familiaritas murid).
+
+Tools Terinstal: openssh-server, iproute2, net-tools, fdisk, nano, curl, dan alat networking/storage dasar lainnya.
+
+Skrip Kustom:
+
+COPY scripts/lab.sh /usr/local/bin/lab: Menyalin skrip instruktur (lab start, lab end) ke dalam container.
+
+RUN chmod +x /usr/local/bin/lab: Membuat skrip tersebut bisa dieksekusi.
+
+COPY lab_configs/ /opt/lab_configs/: Menyalin semua file konfigurasi lab (misal, file-mgmt.start.sh, ssh.validate.sh) ke dalam direktori khusus di container.
+
+6. Draf API & Event WebSocket
+API (REST - Express)
+POST /api/admin/login
+
+Deskripsi: Login untuk admin.
+
+Body: { "username": "...", "password": "..." }
+
+Respon (Sukses): { "token": "jwt.token.here" } (Token JWT untuk sesi admin).
+
+POST /api/admin/generate-token (Dilindungi JWT Admin)
+
+Deskripsi: Membuat satu token baru dan menyimpannya ke DB.
+
+Respon (Sukses): { "token_string": "LAB-X5Y6-Z7W8" }
+
+GET /api/status (Publik)
+
+Deskripsi: Mengecek status server Docker dan jumlah sesi aktif.
+
+Respon: { "status": "AKTIF", "active_sessions": 1, "max_sessions": 3 } atau { "status": "TIDAK AKTIF", "message": "Server simulasi sedang offline." }
+
+Event (Real-time - Socket.io)
+Client -> Server
+
+auth(token): Event pertama yang dikirim client saat terhubung, membawa token akses dari murid.
+
+terminal-input(data): Mengirim data ketikan (string) dari xterm.js ke backend.
+
+Server -> Client
+
+auth-success: Dikirim jika token valid dan sesi berhasil dibuat. Memberi sinyal ke React untuk menampilkan terminal.
+
+auth-fail(message): Dikirim jika token ditolak. Contoh message: "Token tidak valid", "Server penuh, coba lagi nanti."
+
+terminal-output(data): Mengirim data output (string) dari stdout container untuk ditampilkan di xterm.js.
+
+session-end(message): Dikirim saat sesi diakhiri paksa oleh server (misal: "Waktu Anda habis (1 jam). Koneksi terputus.").
+
+okey mantap, sekarang bantu saya setup dockernya
+
+Oke, mari kita siapkan environment Docker-nya. Ini adalah fondasi dari seluruh lab kita.
+
+Saya akan memandu Anda melalui 4 langkah:
+
+Struktur Folder yang akan kita gunakan.
+
+Menulis Dockerfile (cetakan untuk image kita).
+
+Membuat Skrip Lab (lab.sh dan contohnya).
+
+Membangun (Build) Image-nya.
+
+1. Struktur Folder
+Pertama, mari kita buat struktur folder yang rapi di dalam proyek Anda. Saya sarankan membuat folder khusus untuk ini, misalnya docker-env:
+
+/Proyek-Anda
+|
++-- /docker-env
+|   |
+|   +-- Dockerfile           <-- (File utama kita)
+|   |
+|   +-- /scripts
+|   |   +-- lab.sh           <-- (Skrip 'instruktur' lab)
+|   |
+|   +-- /lab_configs
+|       +-- file-mgmt.start.sh
+|       +-- file-mgmt.validate.sh
+|       +-- ssh.start.sh
+|       +-- ssh.validate.sh
+|
++-- /backend                 (Nanti untuk kode Node.js)
++-- /frontend                (Nanti untuk kode React)
+2. File: Dockerfile
+Ini adalah "resep" untuk membuat image Ubuntu kustom kita. Buat file bernama Dockerfile (tanpa ekstensi) di dalam folder docker-env.
+
+docker-env/Dockerfile
+
+Dockerfile
+# 1. Gunakan Ubuntu 22.04 sesuai keputusan kita
+FROM ubuntu:22.04
+
+# 2. Set agar installer tidak menanyakan hal-hal interaktif
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 3. Update dan install semua tools yang kita butuhkan
+#    - sudo: Penting untuk lab networking/storage
+#    - openssh-server: Untuk lab SSH
+#    - iproute2, net-tools: Untuk lab networking (ifconfig, route, ip)
+#    - util-linux: Untuk lab storage (fdisk)
+#    - nano, curl, procps: Alat bantu umum (editor, 'ps')
+RUN apt-get update && apt-get install -y \
+    sudo \
+    openssh-server \
+    iproute2 \
+    net-tools \
+    util-linux \
+    nano \
+    curl \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# 4. Buat user 'murid' agar mereka tidak login sebagai root
+#    - Kita buatkan password 'murid' (hanya untuk di dalam container)
+#    - Kita masukkan dia ke grup 'sudo' agar bisa menjalankan perintah admin
+RUN useradd -m -s /bin/bash murid \
+    && echo "murid:murid" | chpasswd \
+    && adduser murid sudo
+
+# 5. Salin semua file konfigurasi lab ke dalam image
+COPY lab_configs/ /opt/lab_configs/
+
+# 6. Salin skrip 'lab' kita dan buat agar bisa dieksekusi
+COPY scripts/lab.sh /usr/local/bin/lab
+RUN chmod +x /usr/local/bin/lab
+
+# 7. Ganti ke user 'murid' dan set direktori kerja mereka
+USER murid
+WORKDIR /home/murid
+
+# 8. Perintah default saat container dijalankan (ini akan di-override
+#    oleh 'dockerode' kita nanti, tapi bagus untuk testing)
+CMD ["/bin/bash"]
+3. File: Skrip Lab
+Sekarang, kita buat skrip-skrip yang kita COPY di Dockerfile tadi.
+
+docker-env/scripts/lab.sh (Ini adalah "Instruktur" Anda)
+
+Bash
+#!/bin/bash
+
+# Path ke direktori konfigurasi lab
+CONFIG_DIR="/opt/lab_configs"
+
+# Ambil aksi (start/end) dan nama lab
+ACTION=$1
+LAB_NAME=$2
+
+# Tampilkan bantuan jika argumen kurang
+if [ -z "$ACTION" ] || [ -z "$LAB_NAME" ]; then
+    echo "Penggunaan: lab <start|end> <nama_lab>"
+    echo "Contoh: lab start file-mgmt"
+    exit 1
+fi
+
+# Definisikan nama file skrip
+SETUP_SCRIPT="${CONFIG_DIR}/${LAB_NAME}.start.sh"
+VALIDATE_SCRIPT="${CONFIG_DIR}/${LAB_NAME}.validate.sh"
+
+case $ACTION in
+    start)
+        if [ -f "$SETUP_SCRIPT" ]; then
+            echo "--- Memulai Lab: $LAB_NAME ---"
+            /bin/bash "$SETUP_SCRIPT"
+            echo "-----------------------------------"
+            echo "Lingkungan lab telah disiapkan."
+            echo "Silakan kerjakan tugas sesuai instruksi."
+        else
+            echo "Error: Lab '$LAB_NAME' tidak ditemukan."
+        fi
+        ;;
+
+    end)
+        if [ -f "$VALIDATE_SCRIPT" ]; then
+            echo "--- Memvalidasi Lab: $LAB_NAME ---"
+            
+            # Jalankan skrip validasi dan tangkap hasilnya
+            if /bin/bash "$VALIDATE_SCRIPT"; then
+                echo "-----------------------------------"
+                echo "✅ SELAMAT! Lab Selesai."
+                echo "-----------------------------------"
+            else
+                echo "-----------------------------------"
+                echo "❌ GAGAL. Coba periksa kembali pekerjaan Anda."
+                echo "-----------------------------------"
+            fi
+        else
+            echo "Error: Skrip validasi '$LAB_NAME' tidak ditemukan."
+        fi
+        ;;
+    *)
+        echo "Aksi tidak dikenal: $ACTION. Gunakan 'start' atau 'end'."
+        ;;
+esac
+docker-env/lab_configs/file-mgmt.start.sh (Contoh Lab Mudah)
+
+Bash
+#!/bin/bash
+# Skrip ini mengatur lingkungan untuk lab file-mgmt
+echo "Membersihkan direktori latihan..."
+rm -rf /home/murid/latihan-files
+mkdir -p /home/murid/latihan-files/dokumen
+mkdir -p /home/murid/latihan-files/backup
+
+touch /home/murid/latihan-files/dokumen/laporan_keuangan.txt
+touch /home/murid/latihan-files/dokumen/catatan_rapat.md
+
+echo ""
+echo "TUGAS: Pindahkan semua file (.txt) dari '~/latihan-files/dokumen' ke '~/latihan-files/backup'."
+docker-env/lab_configs/file-mgmt.validate.sh
+
+Bash
+#!/bin/bash
+# Skrip ini memvalidasi apakah tugas sudah selesai
+if [ -f "/home/murid/latihan-files/backup/laporan_keuangan.txt" ]; then
+    # Jika file ada di tujuan, berhasil
+    exit 0
+else
+    # Jika tidak, gagal
+    exit 1
+fi
+docker-env/lab_configs/ssh.start.sh (Contoh Lab Sulit)
+
+Bash
+#!/bin/bash
+echo "TUGAS: Service SSH di container ini sedang tidak berjalan."
+echo "Gunakan 'sudo' untuk menjalankan service SSH."
+echo "Hint: sudo service ssh start"
+docker-env/lab_configs/ssh.validate.sh
+
+Bash
+#!/bin/bash
+# Cek apakah service ssh berjalan
+if service ssh status > /dev/null; then
+    # Berhasil
+    exit 0
+else
+    # Gagal
+    exit 1
+fi
+4. Membangun (Build) Image
+Sekarang semua file sudah siap.
+
+Buka terminal Anda.
+
+Masuk ke direktori docker-env yang Anda buat:
+
+Bash
+cd /path/ke/Proyek-Anda/docker-env
+Jalankan perintah docker build:
+
+Bash
+docker build -t simulasi-linux:latest .
+-t simulasi-linux:latest memberi nama image kita simulasi-linux dengan tag latest. Ini adalah nama yang akan kita gunakan di kode dockerode (Node.js) nanti.
+
+. (titik) berarti "gunakan Dockerfile di direktori ini".
+
+Docker sekarang akan mengunduh Ubuntu dan menjalankan semua perintah di Dockerfile Anda. Ini mungkin butuh beberapa menit.
+
+Cara Tes Cepat (Manual)
+Setelah build selesai, Anda bisa mencobanya langsung:
+
+Bash
+docker run -it --rm simulasi-linux:latest
+-it membuat terminalnya interaktif.
+
+--rm otomatis menghapus container saat Anda exit.
+
+Setelah Anda berada di dalam terminal (sebagai user murid), coba jalankan skrip lab Anda:
+
+Bash
+lab start file-mgmt
+(Kerjakan tugasnya, misal: mv ~/latihan-files/dokumen/*.txt ~/latihan-files/backup/)
+
+Bash
+lab end file-mgmt
+Jika semua berjalan lancar, environment Docker Anda sudah siap! Langkah selanjutnya adalah menyambungkan ini ke backend Node.js.
+
+apakah perlu setup docker desktop? saat ini saya menggunakan windows
+
+Ya, Anda perlu menginstal Docker Desktop.
+
+Karena Anda menggunakan Windows, Anda tidak bisa menjalankan container Linux (seperti Ubuntu yang kita rencanakan) secara native.
+
+Docker Desktop adalah paket lengkap yang menangani semua hal rumit untuk Anda. Saat Anda menginstalnya, Anda mendapatkan:
+
+Docker Engine: Ini adalah "mesin" utamanya. Docker Desktop akan menggunakan WSL 2 (Windows Subsystem for Linux) untuk menjalankan engine Linux ini di dalam Windows secara efisien.
+
+Docker CLI: Ini adalah perintah docker (seperti docker build, docker run) yang Anda ketik di terminal (PowerShell atau CMD).
+
+GUI: Aplikasi desktop yang memudahkan Anda melihat container, image, dan volume yang sedang berjalan.
+
+Nantinya, baik perintah docker build (yang Anda jalankan manual) maupun library dockerode (dari Node.js) akan berkomunikasi dengan Docker Engine yang disediakan oleh Docker Desktop ini.
+
+apakah ada penyesuaian setup dockernya?
+
+Tidak, setup Docker-nya (file-filenya) tidak perlu diubah.
+
+Dockerfile dan skrip-skrip (lab.sh, dll.) yang kita buat memang dirancang untuk Linux (Ubuntu). Itu sudah benar.
+
+Tugas Docker Desktop di Windows adalah menyediakan lingkungan (menggunakan WSL 2) agar bisa menjalankan container Linux tersebut.
+
+Penyesuaian Nanti di Kode Node.js
+Satu-satunya penyesuaian yang kita perlukan adalah nanti, saat kita menulis kode backend Node.js.
+
+Penyesuaiannya ada pada cara dockerode (library Node.js) terhubung ke Docker Engine:
+
+Di Linux: dockerode terhubung ke sebuah file socket di /var/run/docker.sock.
+
+Di Windows: dockerode harus terhubung ke "pipa" khusus Windows yang disediakan Docker Desktop.
+
+Jadi, saat kita membuat file server.js nanti, alih-alih:
+
+JavaScript
+// Versi Linux
+const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+Kita akan menggunakan ini:
+
+JavaScript
+// Versi Windows
+const docker = new Docker({ socketPath: '\\\\.\\pipe\\docker_engine' });
+Singkatnya:
+
+File Docker: Tidak ada yang berubah.
+
+Perintah docker build: Tidak ada yang berubah. Jalankan saja di PowerShell/CMD Anda.
+
+Kode Node.js: Hanya 1 baris inisialisasi dockerode yang akan kita sesuaikan nanti.
+
+Silakan lanjutkan proses build Docker-nya. Itu akan berjalan lancar.
